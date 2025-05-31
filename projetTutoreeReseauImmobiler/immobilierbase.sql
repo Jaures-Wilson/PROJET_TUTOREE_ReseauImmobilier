@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1
--- Généré le : jeu. 29 mai 2025 à 02:56
+-- Généré le : sam. 31 mai 2025 à 18:38
 -- Version du serveur : 10.4.32-MariaDB
 -- Version de PHP : 8.2.12
 
@@ -75,7 +75,7 @@ CREATE TABLE `annonce` (
   `description` text NOT NULL,
   `prix_mensuel` int(11) NOT NULL,
   `localisation` text NOT NULL,
-  `status` text NOT NULL CHECK (`status` in ('DISPONIBLE','RÉSERVÉ','VENDU')),
+  `status` enum('DISPONIBLE','RÉSERVÉ','VENDU','REFUSE') NOT NULL,
   `date_publication` datetime NOT NULL DEFAULT current_timestamp(),
   `tarif_reservation` int(11) DEFAULT NULL,
   `nombre_vue` int(11) DEFAULT 0,
@@ -90,7 +90,7 @@ CREATE TABLE `annonce` (
 
 INSERT INTO `annonce` (`id_annonce`, `titre`, `description`, `prix_mensuel`, `localisation`, `status`, `date_publication`, `tarif_reservation`, `nombre_vue`, `nombre_favori`, `nombre_visite`, `id_annonceur`) VALUES
 (1, 'Studio à Bonamoussadi', 'Studio moderne et bien équipé', 100000, 'Douala', 'DISPONIBLE', '2025-05-29 02:55:19', 10000, 0, 0, 0, 2),
-(2, 'Appartement à Bastos', 'Grand appartement 3 chambres', 250000, 'Yaoundé', 'RESERVÉ', '2025-05-29 02:55:19', 15000, 0, 0, 0, 2),
+(2, 'Appartement à Bastos', 'Grand appartement 3 chambres', 250000, 'Yaoundé', 'RÉSERVÉ', '2025-05-29 02:55:19', 15000, 0, 0, 0, 2),
 (3, 'Chambre à Makepe', 'Petite chambre pas chère', 50000, 'Douala', 'VENDU', '2025-05-29 02:55:19', 5000, 0, 0, 0, 2);
 
 -- --------------------------------------------------------
@@ -103,17 +103,19 @@ CREATE TABLE `annonceur` (
   `id_annonceur` int(11) NOT NULL,
   `numero_mtn_momo` int(11) DEFAULT NULL,
   `numero_orange_money` int(11) DEFAULT NULL,
-  `numero_uba` int(11) DEFAULT NULL
+  `numero_uba` int(11) DEFAULT NULL,
+  `id_abonnement_actif` int(11) DEFAULT NULL,
+  `id_abonnement` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Déchargement des données de la table `annonceur`
 --
 
-INSERT INTO `annonceur` (`id_annonceur`, `numero_mtn_momo`, `numero_orange_money`, `numero_uba`) VALUES
-(1, 699000003, 678000004, 987654321),
-(2, 675000001, 690000002, 123456789),
-(3, 670000005, 673000006, 111222333);
+INSERT INTO `annonceur` (`id_annonceur`, `numero_mtn_momo`, `numero_orange_money`, `numero_uba`, `id_abonnement_actif`, `id_abonnement`) VALUES
+(1, 699000003, 678000004, 987654321, NULL, NULL),
+(2, 675000001, 690000002, 123456789, NULL, NULL),
+(3, 670000005, 673000006, 111222333, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -124,7 +126,7 @@ INSERT INTO `annonceur` (`id_annonceur`, `numero_mtn_momo`, `numero_orange_money
 CREATE TABLE `contrat` (
   `id_contrat` int(11) NOT NULL,
   `date_signature` datetime NOT NULL DEFAULT current_timestamp(),
-  `type` text NOT NULL CHECK (`type` in ('PROMESSE_VENTE','VENTE')),
+  `type` enum('PROMESSE_VENTE','VENTE') NOT NULL,
   `date_debut_contrat` datetime DEFAULT NULL,
   `date_fin_contrat` datetime DEFAULT NULL,
   `precision_en_surplus` text DEFAULT NULL,
@@ -195,20 +197,21 @@ INSERT INTO `message` (`id_message`, `contenu`, `date_envoi`, `lu`, `id_expedite
 CREATE TABLE `notification` (
   `id_notification` int(11) NOT NULL,
   `date_creation` datetime NOT NULL DEFAULT current_timestamp(),
-  `type` text NOT NULL CHECK (`type` in ('CONTRAT','PAIEMENT','VISITE','MESSAGE')),
+  `type` enum('CONTRAT','PAIEMENT','VISITE','CONVOITISE','MESSAGE') NOT NULL,
   `lu` tinyint(1) DEFAULT 0,
   `id_expediteur` int(11) NOT NULL,
-  `id_destinataire` int(11) NOT NULL
+  `id_destinataire` int(11) NOT NULL,
+  `contenu` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Déchargement des données de la table `notification`
 --
 
-INSERT INTO `notification` (`id_notification`, `date_creation`, `type`, `lu`, `id_expediteur`, `id_destinataire`) VALUES
-(1, '2025-05-29 02:55:20', 'PAIEMENT', 0, 2, 1),
-(2, '2025-05-29 02:55:20', 'VISITE', 1, 3, 1),
-(3, '2025-05-29 02:55:20', 'CONTRAT', 0, 1, 2);
+INSERT INTO `notification` (`id_notification`, `date_creation`, `type`, `lu`, `id_expediteur`, `id_destinataire`, `contenu`) VALUES
+(1, '2025-05-29 02:55:20', 'PAIEMENT', 0, 2, 1, ''),
+(2, '2025-05-29 02:55:20', 'VISITE', 1, 3, 1, ''),
+(3, '2025-05-29 02:55:20', 'CONTRAT', 0, 1, 2, '');
 
 -- --------------------------------------------------------
 
@@ -220,10 +223,10 @@ CREATE TABLE `paiement` (
   `id_paiement` int(11) NOT NULL,
   `montant` int(11) NOT NULL,
   `date_paiement` datetime NOT NULL DEFAULT current_timestamp(),
-  `moyen_paiement` text NOT NULL CHECK (`moyen_paiement` in ('CARTE_UBA','OM','MoMo')),
-  `statut` text NOT NULL CHECK (`statut` in ('CONFIRMEE','EN_ATTENTE')),
-  `type_contrat` text NOT NULL CHECK (`type_contrat` in ('PROMESSE_VENTE','VENTE')),
-  `capture_photo_preuve_paiement` longblob NOT NULL,
+  `moyen_paiement` enum('CARTE_UBA','OM','MoMo') NOT NULL,
+  `statut` enum('CONFIRMEE','EN_ATTENTE','REFUSE') NOT NULL,
+  `type_contrat` enum('PROMESSE_VENTE','VENTE') NOT NULL,
+  `capture_photo_preuve_paiement` tinyblob NOT NULL,
   `lu` tinyint(1) DEFAULT 0,
   `id_annonce` int(11) NOT NULL,
   `id_acquereur` int(11) NOT NULL,
@@ -301,7 +304,7 @@ CREATE TABLE `utilisateur` (
   `role` enum('ADMIN','ANNONCEUR','ACQUEREUR') NOT NULL,
   `num_phone` int(11) NOT NULL,
   `format_num_pays` int(11) NOT NULL,
-  `photo_profil` longblob DEFAULT NULL
+  `photo_profil` tinyblob DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -311,7 +314,8 @@ CREATE TABLE `utilisateur` (
 INSERT INTO `utilisateur` (`id_utilisateur`, `nom`, `email`, `mot_de_passe`, `role`, `num_phone`, `format_num_pays`, `photo_profil`) VALUES
 (1, 'Alice Mbarga', 'alice@example.com', 'pass123', 'ACQUEREUR', 690112233, 237, NULL),
 (2, 'Bruno Nji', 'bruno@example.com', 'pass456', 'ANNONCEUR', 677445566, 237, NULL),
-(3, 'Clara Douala', 'clara@example.com', 'adminpass', 'ADMIN', 699998877, 237, NULL);
+(3, 'Clara Douala', 'clara@example.com', 'adminpass', 'ADMIN', 699998877, 237, NULL),
+(4, 'Jean Dupont', 'jean@test.com', 'password123', 'ACQUEREUR', 690123456, 237, NULL);
 
 -- --------------------------------------------------------
 
@@ -322,7 +326,7 @@ INSERT INTO `utilisateur` (`id_utilisateur`, `nom`, `email`, `mot_de_passe`, `ro
 CREATE TABLE `visite` (
   `id_visite` int(11) NOT NULL,
   `date_visite` date NOT NULL,
-  `statut` text NOT NULL CHECK (`statut` in ('DEMANDEE','CONFIRMEE','ANNULEE','EFFECTUÉE')),
+  `statut` enum('DEMANDEE','CONFIRMEE','ANNULEE','EFFECTUEE') NOT NULL,
   `id_annonce` int(11) NOT NULL,
   `id_acquereur` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -357,13 +361,14 @@ ALTER TABLE `administrateur`
 --
 ALTER TABLE `annonce`
   ADD PRIMARY KEY (`id_annonce`),
-  ADD KEY `id_annonceur` (`id_annonceur`);
+  ADD KEY `FK1wj57nqhxiwgpqdxhv400gi5t` (`id_annonceur`);
 
 --
 -- Index pour la table `annonceur`
 --
 ALTER TABLE `annonceur`
-  ADD PRIMARY KEY (`id_annonceur`);
+  ADD PRIMARY KEY (`id_annonceur`),
+  ADD KEY `id_abonnement_actif` (`id_abonnement_actif`);
 
 --
 -- Index pour la table `contrat`
@@ -490,7 +495,7 @@ ALTER TABLE `plainte`
 -- AUTO_INCREMENT pour la table `utilisateur`
 --
 ALTER TABLE `utilisateur`
-  MODIFY `id_utilisateur` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id_utilisateur` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT pour la table `visite`
@@ -518,13 +523,15 @@ ALTER TABLE `administrateur`
 -- Contraintes pour la table `annonce`
 --
 ALTER TABLE `annonce`
+  ADD CONSTRAINT `FK1wj57nqhxiwgpqdxhv400gi5t` FOREIGN KEY (`id_annonceur`) REFERENCES `utilisateur` (`id_utilisateur`),
   ADD CONSTRAINT `annonce_ibfk_1` FOREIGN KEY (`id_annonceur`) REFERENCES `annonceur` (`id_annonceur`) ON DELETE CASCADE;
 
 --
 -- Contraintes pour la table `annonceur`
 --
 ALTER TABLE `annonceur`
-  ADD CONSTRAINT `annonceur_ibfk_1` FOREIGN KEY (`id_annonceur`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE;
+  ADD CONSTRAINT `annonceur_ibfk_1` FOREIGN KEY (`id_annonceur`) REFERENCES `utilisateur` (`id_utilisateur`) ON DELETE CASCADE,
+  ADD CONSTRAINT `annonceur_ibfk_2` FOREIGN KEY (`id_abonnement_actif`) REFERENCES `abonnement` (`id_abonnement`) ON DELETE SET NULL;
 
 --
 -- Contraintes pour la table `contrat`
